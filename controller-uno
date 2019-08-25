@@ -1,0 +1,132 @@
+#include <LiquidCrystal.h>          //the liquid crystal libarry contains commands for printing to the display
+
+int button[] = {
+  2,
+  3
+};
+const byte numChars = 500;
+char receivedChars[numChars]; // an array to store the received data
+static byte ndx = 0;
+boolean newData = false;
+bool connectWIFI = false;
+
+int pinBuzzer = 7; //buzzer
+
+//state
+bool connectButtonState = false;
+
+int selectButton = 0;
+int counter = 1;
+bool cursorDown = false;
+
+LiquidCrystal lcd(13, 12, 11, 10, 9, 8); // tell the RedBoard what pins are connected to the display
+
+void setup() {
+  pinMode(button[0], INPUT_PULLUP);
+  pinMode(button[1], INPUT_PULLUP);
+  pinMode(pinBuzzer, OUTPUT);
+  lcd.begin(16, 2); //tell the lcd library that we are using a display that is 16 characters wide and 2 characters high
+  lcd.clear(); //clear the display
+  Serial.begin(115200);
+  lcd.print("YIHUA Home Kit"); //print hello, world! starting at that position
+
+}
+
+void loop() {
+
+  lcd.setCursor(0, 0); //set the cursor to the 0,0 position (top left corner)
+
+  if (Serial.available() && !connectButtonState && !connectWIFI) {
+    // wait a bit for the entire message to arrive
+    delay(300);
+    // clear the screen
+
+    lcd.clear();
+    // read all the available characters
+    while (Serial.available() > 0 && !connectButtonState) {
+      // display each character to the LCD
+      lcd.write(Serial.read());
+    }
+  }
+
+  if (!Serial.available() && connectButtonState && !connectWIFI) {
+    lcd.clear();
+    Serial.print("connect");
+    delay(5000);
+    connectButtonState = false;
+    connectWIFI = true;
+  }
+
+  if (Serial.available() && connectWIFI) {
+    String inData;
+
+    delay(300);
+    if(!cursorDown){
+       lcd.clear();
+    }
+    while (Serial.available() > 0 && !connectButtonState) {
+      char rec = Serial.read();
+      if (rec == '\a') {
+        alertSound();
+        delay(300);
+        lcd.setCursor(0, 0);
+        cursorDown = false; 
+        lcd.clear();
+      }else if( rec == '$'){
+        lcd.setCursor(0, 1); 
+        cursorDown = true;
+      }else{
+        lcd.write(rec);
+      }
+    }
+  }
+
+  lcd.setCursor(0, 1); //mvoe the cursor to the first space of the bottom row
+  lcd.print(buttonCheck()); //print the number of seconds that have passed since the last reset
+
+  //recvWithEndMarker();
+  //showNewData();
+}
+
+void alertSound() {
+  for (int i = 200; i <= 800; i++) {
+    tone(pinBuzzer, i);
+    delay(5);
+  }
+  delay(4000);
+  for (int i = 800; i >= 200; i--) {
+    tone(pinBuzzer, i);
+    delay(10);
+  }
+  
+  noTone(pinBuzzer);
+  delay(2000);
+}
+
+//CHECK WHICH BUTTON IS PRESSED
+char * buttonCheck() {
+  if (!connectWIFI) {
+    //check if any buttons are being pressed
+    if (digitalRead(button[0]) == LOW) {
+      connectButtonState = true;
+      return "selected";
+    } else if (digitalRead(button[1]) == LOW) {
+      return 1;
+    } else {
+      return "Stand by"; //this will be the value for no button being pressed
+    }
+  } else {
+    if (digitalRead(button[0]) == LOW) {
+      Serial.println("G");
+      delay(100);
+      return "GO";
+    } else if (digitalRead(button[1]) == LOW) {
+      Serial.println("B");
+      delay(100);
+      return "BACK";
+    } else {
+      return "R:BACK B:GO"; //this will be the value for no button being pressed
+    }
+  }
+
+}
